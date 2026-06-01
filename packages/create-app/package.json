@@ -1,0 +1,31 @@
+{
+  "name": "@sinas/create-app",
+  "version": "0.1.3",
+  "description": "Scaffold a React app that integrates with Sinas",
+  "license": "AGPL-3.0",
+  "type": "module",
+  "bin": {
+    "create-sinas-app": "./bin/create-app.js"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "templates"
+  ],
+  "scripts": {
+    "sync-skills": "rm -rf templates/react-vite/.claude/skills && mkdir -p templates/react-vite/.claude/skills && cp -R ../../skills/. templates/react-vite/.claude/skills/",
+    "prebuild": "npm run sync-skills",
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "prompts": "^2.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "@types/prompts": "^2.4.9",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2"
+  }
+}

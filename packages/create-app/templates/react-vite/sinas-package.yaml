@@ -1,0 +1,16 @@
+apiVersion: sinas.co/v1
+kind: SinasPackage
+package:
+  name: {{appName}}
+  version: "0.1.0"
+  description: {{appName}}
+spec:
+  manifests:
+    - namespace: {{appNamespace}}
+      name: {{appNamespace}}
+      description: Manifest for {{appName}}
+      requiredResources: []
+      requiredPermissions: []
+      optionalPermissions: []
+      exposedNamespaces: {}
+      storeDependencies: []

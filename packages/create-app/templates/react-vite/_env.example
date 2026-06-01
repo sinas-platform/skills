@@ -1,0 +1,3 @@
+# Default workspace URL baked into the build. Users can still switch via the
+# workspace modal in the login screen, but this is the default they see.
+VITE_DEFAULT_WORKSPACE_URL={{instanceUrl}}

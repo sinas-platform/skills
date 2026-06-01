@@ -1,0 +1,14 @@
+{
+  "name": "sinas-skills",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Skills and scaffolding tools for AI coding agents working with Sinas",
+  "license": "AGPL-3.0",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  }
+}
