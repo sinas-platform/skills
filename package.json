@@ -2,7 +2,7 @@
   "name": "sinas-skills",
   "private": true,
   "version": "0.1.0",
-  "description": "Skills and scaffolding tools for AI coding agents working with Sinas",
+  "description": "Skills and CLI for AI coding agents building on Sinas",
   "license": "AGPL-3.0",
   "workspaces": [
     "packages/*"

@@ -1,7 +1,7 @@
 {
   "name": "@sinas/cli",
-  "version": "0.1.0",
-  "description": "Sinas CLI — validate, preview, install Sinas packages and manage app integration",
+  "version": "0.2.0",
+  "description": "Sinas CLI \u2014 set up agent skills, validate, preview, and install Sinas packages",
   "license": "AGPL-3.0",
   "type": "module",
   "bin": {
@@ -14,7 +14,8 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "commander": "^12.1.0",
@@ -26,5 +27,13 @@
     "@types/prompts": "^2.4.9",
     "tsup": "^8.3.5",
     "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sinas-platform/skills.git",
+    "directory": "packages/cli"
   }
 }

@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { findPackageFile, PACKAGE_FILE } from '../files.js';
 import { ok, fail, info, warn, ui } from '../ui.js';
 
-type ResourceType = 'query' | 'function' | 'connector' | 'agent' | 'skill' | 'collection' | 'store' | 'webhook' | 'schedule';
+type ResourceType = 'query' | 'function' | 'connector' | 'agent' | 'skill' | 'collection' | 'store' | 'webhook' | 'schedule' | 'pipeline';
 
 const SECTION_BY_TYPE: Record<ResourceType, string> = {
   query: 'queries',
@@ -14,6 +14,7 @@ const SECTION_BY_TYPE: Record<ResourceType, string> = {
   store: 'stores',
   webhook: 'webhooks',
   schedule: 'schedules',
+  pipeline: 'pipelines',
 };
 
 function template(type: ResourceType, namespace: string, name: string): string {
@@ -92,13 +93,32 @@ function template(type: ResourceType, namespace: string, name: string): string {
       enabledFunctions: []
 `;
     case 'schedule':
+      return `    - name: ${name}
+      description: TODO
+      scheduleType: function      # function | agent | pipeline
+      functionName: ${namespace}/TODO
+      cronExpression: "0 * * * *"
+      inputData: {}
+`;
+    case 'pipeline':
       return `    - namespace: ${namespace}
       name: ${name}
       description: TODO
-      cron: "0 * * * *"
-      target:
-        type: function
-        ref: ${namespace}/TODO
+      inputSchema:
+        type: object
+        properties: {}
+      steps:
+        - name: fetch
+          type: connector          # connector | function | agent | query | load
+          connector: ${namespace}/TODO
+          operation: TODO
+          input: {}
+        - name: process
+          type: function
+          function: ${namespace}/TODO
+          input.$: "{value: steps.fetch.output.body}"
+      # asTool: true               # expose to agents (requires toolDescription + inputSchema)
+      # toolDescription: TODO
 `;
   }
 }
