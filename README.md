@@ -1,76 +1,50 @@
 # sinas-skills
 
-> ⚠️ **Under active development.** This project is very much still a work in
-> progress — APIs, package layout, and skill contents may change without notice.
+Skills and a CLI for AI coding agents (Claude Code, Cursor, etc.) building
+on [Sinas](https://github.com/sinas-platform/sinas).
 
-Skills and scaffolding tools for AI coding agents (Claude Code, Cursor, etc.)
-working with [Sinas](https://github.com/sinas-platform/sinas).
+Two skills — plain markdown your coding agent reads — and one CLI:
 
-Use the scaffolding (`@sinas/create-app`) to spin up a working base app in one
-command — the quickest way to start. Or skip the scaffolding entirely and just
-drop the skills into your own coding agent: they're plain markdown that teaches
-the agent how to author Sinas packages and integrate an app, so it can do the
-work in whatever project you already have.
-
-Two pieces:
-
-| Package | Purpose |
+| Piece | Purpose |
 |---|---|
-| [`@sinas/cli`](packages/cli) | `sinas` binary — validate, preview, install Sinas packages from your terminal |
-| [`@sinas/create-app`](packages/create-app) | `npx @sinas/create-app` — scaffold a React app that integrates with Sinas |
+| [`skills/sinas-package-author`](skills/sinas-package-author) | Extend a Sinas instance via packages: queries, functions, agents, pipelines, connectors, triggers — schema, workflow, patterns |
+| [`skills/sinas-ui`](skills/sinas-ui) | Build a UI or client on the Sinas runtime API: auth in every mode, agents, streaming, pipelines, files — framework-agnostic |
+| [`@sinas/cli`](packages/cli) | `sinas` binary — init, validate, preview, install packages against an instance |
 
-Two skills (markdown docs read by your AI coding agent):
-
-| Skill | What it teaches |
-|---|---|
-| [`sinas-package-author`](skills/sinas-package-author) | Authoring SinasPackage YAMLs: schema, workflow, resource patterns |
-| [`sinas-app`](skills/sinas-app) | Scaffolding and integrating a Node app with Sinas |
-
-When you run `npx @sinas/create-app`, the skill markdown is copied into the
-new project's `.claude/skills/` so the agent reading your repo can use it
-without any global install.
+There is deliberately **no app scaffolding** here. `sinas init` drops the
+skills into any existing repo's `.claude/skills/` plus a starter
+`sinas-package.yaml`; your agent does the rest in whatever stack the
+project already uses.
 
 ## Getting started
 
-### 1. Create an admin API key
-
-The CLI talks to the Management API, which needs an admin token. Create one in
-the **Sinas management console**:
-
-1. Open your instance's management console and go to **Settings → API keys**.
-2. Create a new key with the permission `sinas.*:all` (full management access).
-3. Copy the token — you won't be able to view it again.
-
-> The admin token is used only by the CLI for the Management API. It never goes
-> into your browser bundle.
-
-### 2. Install the CLI and log in
-
 ```bash
-npm i -g @sinas/cli
-sinas login                       # paste your instance URL + admin token
+# In your project:
+npx @sinas/cli init      # skills + starter package file
+npx @sinas/cli login     # instance URL + admin API key → .sinas/config.json
 ```
 
-`sinas login` verifies the token against `/auth/me` and writes it to
-`./.sinas/config.json` (or `~/.sinas/config.json` with `--global`).
+Create the admin API key in the Sinas console under **Settings → API
+keys** (needs management permissions). Then ask your coding agent for
+what you want — "add a pipeline that syncs deals nightly", "build a
+review screen for the triage agent" — and it will use the skills.
 
-### 3. Scaffold an app
-
-```bash
-npx @sinas/create-app my-app
-cd my-app
-npm install
-npm run dev
-```
-
-### 4. Author and install the Sinas package side
+The authoring loop the agent follows:
 
 ```bash
-sinas validate                    # validate sinas-package.yaml + sinas-config.yaml
-sinas preview                     # dry-run, show the diff
-sinas install                     # apply config, then install the package
-sinas status                      # check resources + required permissions
+sinas add <type> <name>   # stub a resource in sinas-package.yaml
+sinas validate            # after every edit
+sinas preview             # dry-run diff
+sinas install             # apply (asks for confirmation)
+sinas status              # manifest health: resources + permissions
 ```
+
+## Compatibility
+
+Tracks Sinas 0.4.x (pipelines, provider batch mode, agent provider
+overrides, OIDC token verification). Instances report their version in
+the `X-Sinas-Version` response header and at `GET /info`. The instance's
+`/openapi.json` is always the authority when details differ.
 
 ## License
 

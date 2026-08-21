@@ -1,14 +1,14 @@
 ---
 name: sinas-package-author
-description: How to author Sinas packages (SinasPackage YAML) — schema, workflow, resource patterns. Read this when the user asks you to add a query, function, agent, connector, skill, manifest, schedule, webhook, store, collection, or template, or to validate / preview / install a Sinas package.
+description: How to author Sinas packages (SinasPackage YAML) — schema, workflow, resource patterns. Read this when the user asks you to add a query, function, agent, pipeline, connector, skill, manifest, schedule, webhook, store, collection, or template, or to validate / preview / install a Sinas package.
 ---
 
 # Sinas Package Author
 
 You are helping a developer extend a Sinas instance via a YAML package. A
 SinasPackage is an installable, idempotent bundle of resources — queries,
-functions, agents, skills, connectors, manifests, stores, schedules,
-webhooks, collections, templates, and Python dependencies. Installing
+functions, agents, pipelines, skills, connectors, manifests, stores,
+schedules, webhooks, collections, templates, and Python dependencies. Installing
 creates them; reinstalling updates them; uninstalling removes them.
 
 ## Your tools
@@ -22,7 +22,7 @@ Sinas:
 | `sinas preview` | Dry-run. Shows what would change. Share the diff with the user before installing. |
 | `sinas install` | Applies. Requires user confirmation. |
 | `sinas status` | Reports manifest health: missing resources + missing permissions. |
-| `sinas add <type> <name>` | Appends a templated resource stub to `sinas-package.yaml`. Types: `query`, `function`, `connector`, `agent`, `skill`, `collection`, `store`, `webhook`, `schedule`. |
+| `sinas add <type> <name>` | Appends a templated resource stub to `sinas-package.yaml`. Types: `query`, `function`, `connector`, `agent`, `skill`, `collection`, `store`, `webhook`, `schedule`, `pipeline`. |
 
 Use `Read`, `Write`, `Edit` on `sinas-package.yaml` directly. Prefer
 `sinas add` for the initial stub, then `Edit` to fill it in — never
@@ -56,6 +56,7 @@ spec:
   queries: []
   functions: []
   agents: []
+  pipelines: []
   skills: []
   stores: []
   components: []
@@ -72,9 +73,9 @@ optional. Include only what you need.
 
 ## What packages CAN create
 
-`collections, queries, functions, agents, skills, stores, components,
-connectors, templates, webhooks, schedules, databaseTriggers, dependencies,
-manifests, variables`.
+`collections, queries, functions, agents, pipelines, skills, stores,
+components, connectors, templates, webhooks, schedules, databaseTriggers,
+dependencies, manifests, variables`.
 
 ## What packages CANNOT create
 
@@ -324,7 +325,7 @@ Functions designed for bulk should set realistic `timeout`, avoid
 interactive `input()` calls, and emit structured `output_data` that
 callbacks can carry verbatim.
 
-The Sinas Python SDK is preinstalled (`sinas==0.1.7`):
+The Sinas Python SDK is preinstalled (`sinas==0.1.8`):
 
 ```python
 from sinas import SinasClient
@@ -360,6 +361,38 @@ connectors:
 
 Path params use `{paramName}`. `in` values: `path | query | body | header`.
 
+Auth types: `none | bearer | basic | api_key | sinas_token |
+oauth2_client_credentials | oauth2_authorization_code`. OAuth connectors
+manage token fetch/refresh themselves:
+
+```yaml
+connectors:
+  - namespace: my-app
+    name: service-api
+    baseUrl: https://api.example.com
+    auth:
+      type: oauth2_client_credentials      # service-to-service
+      tokenUrl: https://auth.example.com/oauth/token
+      clientId: "${{ vars.CLIENT_ID }}"
+      clientSecret: "${{ vars.CLIENT_SECRET }}"
+      scopes: [read, write]
+    # For per-user OAuth use type: oauth2_authorization_code — each user
+    # clicks Connect in the console and tokens are stored encrypted per user.
+```
+
+For providers that bend the OAuth spec (Slack nests its user token,
+reports errors on HTTP 200), add `tokenResponsePaths`:
+
+```yaml
+    auth:
+      type: oauth2_authorization_code
+      # ...
+      tokenResponsePaths:
+        accessToken: authed_user.access_token
+        successFlag: ok            # response is an error when falsy
+        error: error
+```
+
 ### Agents
 
 ```yaml
@@ -367,8 +400,13 @@ agents:
   - namespace: my-app
     name: triage
     description: Triage incoming docs.
-    model: claude-sonnet-4-6
+    model: claude-sonnet-5
     temperature: 0.2
+    # Optional whitelisted provider-behavior overrides; absent = inherit the
+    # provider's setting. First key: prompt_caching (bool) — turn caching off
+    # for one-shot agents (cache writes cost extra), on for chatty agents
+    # with big system prompts. Connection settings are never overridable.
+    providerOverrides: { prompt_caching: false }
     systemPrompt: |
       You triage docs by ...
     enabledQueries: [my-app/search-docs]
@@ -381,6 +419,7 @@ agents:
       - { collection: my-app/drafts, access: readwrite }
     enabledStores:
       - { store: my-app/memory, access: readwrite }
+    enabledPipelines: [my-app/sync-crm]   # pipelines with asTool: true only
     systemTools:
       - codeExecution
       - configIntrospection
@@ -393,10 +432,19 @@ makes it a fetchable tool.
 Keep system prompts concrete — no "be helpful." State the goal, the
 tools, the workflow.
 
+`outputSchema` (JSON Schema with `properties`) makes the agent return
+schema-conforming JSON — enforced natively on every provider, including
+Anthropic (since 0.4.0; earlier versions silently fell back to
+prompt-and-parse on Claude).
+
 **Batch invocation considerations.** The runtime API exposes
 `POST /agents/{ns}/{name}/chats/batch` for bulk one-shot agent runs
-(each input = a fresh chat + one user message → final reply). Agents
-designed for bulk should:
+(each input = a fresh chat + one user message → final reply). Since
+0.4.0, passing `"execution_mode": "provider"` submits the whole batch to
+the LLM provider's native batch API at ~50% token cost (up to 24h
+turnaround) — supported for Anthropic, OpenAI, and Gemini providers,
+and only for agents **without tools** (preload-only skills are fine).
+Agents designed for bulk should:
 - not rely on enabled tools that set `requiresApproval: true` — async
   batch execution can't pause for interactive approval and will mark
   the execution as failed
@@ -404,6 +452,100 @@ designed for bulk should:
 - emit a final assistant message that the app's per-execution callback
   can carry verbatim (full transcripts are fetched separately via
   `GET /chats/{chat_id}`)
+
+
+### Pipelines (since 0.4.0)
+
+Linear, typed step sequences: connector → function → agent → query →
+database load, fired by schedules, webhooks, database changes (CDC),
+manual runs, or agents (as a tool). The flow itself becomes a declared,
+replayable object instead of glue code.
+
+```yaml
+pipelines:
+  - namespace: my-app
+    name: sync-crm
+    description: Pull deals, enrich, store.
+    inputSchema:
+      type: object
+      properties:
+        since: { type: string }
+    steps:
+      - name: fetch
+        type: connector
+        connector: hubspot/crm-api
+        operation: search-deals
+        input: { limit: 100 }
+      - name: enrich
+        type: function
+        function: my-app/process_doc
+        input.$: "{deals: steps.fetch.output.body.results, since: input.since}"
+      - name: summarise
+        type: agent
+        agent: my-app/triage
+        message.$: "steps.enrich.output.summary_request"
+      - name: store
+        type: load
+        connection: built-in
+        table: my_app_deals
+        items.$: "steps.enrich.output.deals"
+        primaryKey.$: "item.id"
+    asTool: true                       # agents may call it (needs description)
+    toolDescription: Sync CRM deals. Input {since}.
+    syncTimeoutSeconds: 120
+```
+
+Rules that matter:
+
+- **Expressions**: keys ending in `.$` are JMESPath over
+  `{input, steps.<name>.output, cursor, run}`. A step gives either
+  `input` (literal object, values may themselves use `key.$`) or
+  `input.$` (whole input as one expression) — never both.
+- **`load` steps** upsert into the named table on a Database Connection
+  (auto-creates `pk text PRIMARY KEY, payload jsonb, synced_at`).
+  `primaryKey.$` is evaluated per item with the item under `item.*` —
+  `item.id`, not `id`.
+- **Cursor** (incremental syncs): one step may carry
+  `cursor: { param, path, initial }` — the param is injected into that
+  step's input, `path` extracts the next bookmark from the run context,
+  and a failed run never advances it. Replays are safe.
+- **Retry**: per step, `retry: { maxAttempts: 1-10, backoff: none |
+  linear | exponential }`.
+- **Output**: `output.$` (or literal `output`) maps the run's final
+  output; default is the last step's output. Persisted on the run record.
+- `perUser` runs the pipeline once per connected user (per-user OAuth
+  connectors); `concurrency: single` coalesces overlapping fires.
+
+**Triggering pipelines** — the same trigger resources target them:
+
+```yaml
+webhooks:
+  - path: crm-sync
+    targetType: pipeline
+    pipelineName: my-app/sync-crm     # payload becomes the run input
+
+schedules:
+  - name: nightly-crm-sync
+    scheduleType: pipeline
+    pipelineName: my-app/sync-crm
+    cronExpression: "0 2 * * *"
+    inputData: {}
+
+databaseTriggers:
+  - name: on-new-doc
+    connectionName: built-in
+    tableName: docs
+    operations: [INSERT]
+    targetType: pipeline
+    pipelineName: my-app/sync-crm     # changed rows arrive as run input
+    pollColumn: id
+```
+
+Runtime: `POST /pipelines/{ns}/{name}/run` (`mode: sync | async`),
+`GET /pipelines/{ns}/{name}/runs`, `GET /pipelines/runs/{run_id}`, and
+`POST /pipelines/runs/{run_id}/replay` (re-runs a failed run with its
+stored input). Async/replay responses return the future run's id —
+poll it once execution starts.
 
 ## Common pitfalls
 
@@ -413,6 +555,9 @@ designed for bulk should:
   `inputSchema`). Only SQL and Python bodies use snake_case.
 - **Unknown YAML keys are rejected** — don't invent fields.
 - **Missing `connectionName` on queries** — always specify it.
+- **`primaryKey.$` in load steps is per-item** — `item.id`, never `id`.
+- **`asTool: true` requires `toolDescription`** and an `inputSchema` —
+  agents can only enable pipelines that are tools.
 - **Forgot to update the manifest** — `sinas status` will fail. Update
   `requiredResources` and `requiredPermissions` as you add resources.
 

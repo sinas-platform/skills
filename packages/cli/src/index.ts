@@ -5,13 +5,13 @@ const program = new Command();
 
 program
   .name('sinas')
-  .description('CLI for authoring and installing Sinas packages')
-  .version('0.1.0');
+  .description('CLI for building on Sinas: author, validate, preview, and install packages')
+  .version('0.2.0');
 
 program
   .command('init')
-  .description('Scaffold a new Sinas app in the given directory')
-  .argument('[dir]', 'Target directory')
+  .description('Set up this repo for Sinas development: agent skills + starter package file')
+  .argument('[dir]', 'Target directory (default: current)')
   .action(async (dir?: string) => {
     const { initCommand } = await import('./commands/init.js');
     await initCommand(dir);
@@ -62,7 +62,7 @@ program
 program
   .command('add')
   .description('Append a templated resource block to sinas-package.yaml')
-  .argument('<type>', 'query | function | connector | agent | skill | collection | store | webhook | schedule')
+  .argument('<type>', 'query | function | connector | agent | skill | collection | store | webhook | schedule | pipeline')
   .argument('<name>', 'Resource name')
   .option('--namespace <ns>', 'Namespace (default: package name)')
   .action(async (type: string, name: string, opts) => {
