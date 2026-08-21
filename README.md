@@ -19,10 +19,13 @@ project already uses.
 ## Getting started
 
 ```bash
-# In your project:
+# In your project (Node 18+):
 npx @sinas/cli init      # skills + starter package file
 npx @sinas/cli login     # instance URL + admin API key → .sinas/config.json
 ```
+
+(Or from a checkout of this repo: `npm install && npm run build`, then
+`node packages/cli/bin/sinas.js …`.)
 
 Create the admin API key in the Sinas console under **Settings → API
 keys** (needs management permissions). Then ask your coding agent for
