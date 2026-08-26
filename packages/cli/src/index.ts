@@ -6,7 +6,7 @@ const program = new Command();
 program
   .name('sinas')
   .description('CLI for building on Sinas: author, validate, preview, and install packages')
-  .version('0.2.0');
+  .version('0.2.1');
 
 program
   .command('init')

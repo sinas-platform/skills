@@ -44,8 +44,8 @@ user code — the Sinas console greys those out, do the same).
 
 - `password`: `POST /auth/login {email, password}` → tokens.
 - `otp`: `POST /auth/login {email}` → `{session_id}` →
-  `POST /auth/verify-otp {session_id, code}` → tokens.
-- `password+otp`: login with both fields → `{session_id}` → verify-otp.
+  `POST /auth/verify-otp {session_id, otp_code}` → tokens.
+- `password+otp`: login with both fields → `{session_id}` → verify-otp (same `otp_code` field).
 
 Tokens: `{access_token, refresh_token}`. Access tokens live ~15 min;
 `POST /auth/refresh {refresh_token}` renews. `GET /auth/me` returns the
@@ -113,17 +113,33 @@ POST /agents/{ns}/{name}/invoke
 ### Full conversations: chats + streaming
 
 ```
-POST /chats { "agent": "ns/name", "input": {...}, "expires_in": 86400 }
+POST /agents/{ns}/{name}/chats                        # create (agent in the PATH)
+     { "input": {...}, "expires_in": 86400,
+       "keep_alive": false, "job_timeout": 300 }
 POST /chats/{id}/messages { "content": "..." }        # blocking
 POST /chats/{id}/messages/stream { "content": "..." } # SSE
 GET  /chats/{id}                                       # transcript
+GET  /chats                                            # list
+DELETE /chats/{id}
 ```
 
-The SSE stream emits JSON events: content deltas, tool-call/status
-events (agents' `statusTemplates` surface here), then a done event.
-Render deltas as they come; a tool-using agent goes quiet during tool
-execution — show the status events, not a dead spinner. Set `expires_in`
-on throwaway chats; nothing auto-deletes chats without it.
+There is **no `POST /chats`** — that path is GET/DELETE only, so posting
+to it returns 405. Chats are always created under their agent.
+
+SSE frames are JSON objects with a `type`:
+
+| `type` | Meaning |
+|---|---|
+| `message` | content delta — append `content` as it arrives |
+| `tool_start` / `tool_end` | a tool call began/finished (agents' `statusTemplates` render here) |
+| `approval_required` | a `requiresApproval` tool is waiting — call `POST /chats/{id}/approve-tool/{tool_call_id}` |
+| `delegation_pending` | a sub-agent was delegated to |
+| `done` | turn complete |
+| `error` | turn failed — show it, don't swallow |
+
+A tool-using agent goes quiet between `tool_start` and `tool_end`; show
+those events rather than a dead spinner. Set `expires_in` on throwaway
+chats; nothing auto-deletes chats without it.
 
 ### Bulk: agent batches
 

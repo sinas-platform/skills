@@ -1,7 +1,7 @@
 {
   "name": "@sinas/cli",
-  "version": "0.2.0",
-  "description": "Sinas CLI — set up agent skills, validate, preview, and install Sinas packages",
+  "version": "0.2.1",
+  "description": "Sinas CLI \u2014 set up agent skills, validate, preview, and install Sinas packages",
   "license": "AGPL-3.0",
   "type": "module",
   "bin": {
