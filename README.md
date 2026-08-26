@@ -20,9 +20,14 @@ project already uses.
 
 ```bash
 # In your project (Node 18+):
-npx @sinas/cli init      # skills + starter package file
-npx @sinas/cli login     # instance URL + admin API key → .sinas/config.json
+npx @sinas/cli@latest init      # skills + starter package file
+npx @sinas/cli@latest login     # instance URL + admin API key → .sinas/config.json
 ```
+
+Pin `@latest` (or `npm i -g @sinas/cli@latest` once). Plain
+`npx @sinas/cli` runs an older `sinas` already on your PATH or in the npx
+cache instead of fetching the current release — which silently gets you
+the retired scaffolding flow.
 
 (Or from a checkout of this repo: `npm install && npm run build`, then
 `node packages/cli/bin/sinas.js …`.)
